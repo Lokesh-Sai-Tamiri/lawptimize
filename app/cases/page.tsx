@@ -89,6 +89,15 @@ export default function CasesPage() {
   const [formData, setFormData] = useState(initialFormState)
   const [formError, setFormError] = useState<string | null>(null)
 
+  // Schedule hearing dialog state
+  const [isScheduleHearingOpen, setIsScheduleHearingOpen] = useState(false)
+  const [hearingData, setHearingData] = useState({
+    nextDate: "",
+    hearingType: "",
+    notes: "",
+  })
+  const [hearingError, setHearingError] = useState<string | null>(null)
+
   // Fetch cases on mount
   useEffect(() => {
     fetchCases()
@@ -149,6 +158,95 @@ export default function CasesPage() {
       setFormError(err.message)
     } finally {
       setIsSubmitting(false)
+    }
+  }
+
+  const handleScheduleHearing = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setHearingError(null)
+
+    if (!hearingData.nextDate) {
+      setHearingError("Please select a hearing date")
+      return
+    }
+
+    if (!selectedCase) return
+
+    try {
+      setIsSubmitting(true)
+      const response = await fetch(`/api/cases/${selectedCase.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nextDate: hearingData.nextDate,
+          stage: selectedCase.stage === "FILING" ? "HEARING" : selectedCase.stage,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to schedule hearing")
+      }
+
+      // Update the case in the list
+      setCases((prev) =>
+        prev.map((c) =>
+          c.id === selectedCase.id
+            ? { ...c, nextDate: data.case.nextDate, stage: data.case.stage, stageProgress: data.case.stageProgress }
+            : c
+        )
+      )
+
+      // Update selected case
+      setSelectedCase({
+        ...selectedCase,
+        nextDate: data.case.nextDate,
+        stage: data.case.stage,
+        stageProgress: data.case.stageProgress,
+      })
+
+      // Close dialog and reset form
+      setIsScheduleHearingOpen(false)
+      setHearingData({ nextDate: "", hearingType: "", notes: "" })
+    } catch (err: any) {
+      setHearingError(err.message)
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleStageChange = async (newStage: "FILING" | "HEARING" | "ARGUMENTS" | "JUDGMENT") => {
+    if (!selectedCase || selectedCase.stage === newStage) return
+
+    try {
+      const response = await fetch(`/api/cases/${selectedCase.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ stage: newStage }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to update case stage")
+      }
+
+      // Update the case in the list
+      setCases((prev) =>
+        prev.map((c) =>
+          c.id === selectedCase.id ? { ...c, stage: data.case.stage, stageProgress: data.case.stageProgress } : c
+        )
+      )
+
+      // Update selected case
+      setSelectedCase({
+        ...selectedCase,
+        stage: data.case.stage,
+        stageProgress: data.case.stageProgress,
+      })
+    } catch (err: any) {
+      console.error("Failed to update stage:", err.message)
     }
   }
 
@@ -417,7 +515,7 @@ export default function CasesPage() {
         <Dialog open={!!selectedCase} onOpenChange={() => setSelectedCase(null)}>
           <DialogContent className="bg-card border-border text-foreground max-w-2xl">
             <DialogHeader>
-              <div className="flex items-start justify-between">
+              <div className="flex items-start justify-between pr-8">
                 <div>
                   <DialogTitle className="text-xl font-semibold text-foreground">{selectedCase?.title}</DialogTitle>
                   <p className="text-sm text-muted-foreground font-mono mt-1">{selectedCase?.caseNumber}</p>
@@ -470,13 +568,30 @@ export default function CasesPage() {
               </div>
 
               <div className="p-4 rounded-lg bg-secondary/30 border border-border">
-                <div className="flex items-center gap-2 text-muted-foreground mb-3">
-                  <Clock className="h-4 w-4" />
-                  <span className="text-sm">Case Stage</span>
-                </div>
-                <div className="flex items-center justify-between mb-2">
-                  <p className="font-medium text-foreground">{selectedCase?.stage}</p>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Clock className="h-4 w-4" />
+                    <span className="text-sm">Case Stage</span>
+                  </div>
                   <span className="text-sm text-muted-foreground">{selectedCase?.stageProgress}%</span>
+                </div>
+                <div className="mb-3">
+                  <Select
+                    value={selectedCase?.stage}
+                    onValueChange={(value) =>
+                      handleStageChange(value as "FILING" | "HEARING" | "ARGUMENTS" | "JUDGMENT")
+                    }
+                  >
+                    <SelectTrigger className="bg-secondary border-border">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="FILING">Filing</SelectItem>
+                      <SelectItem value="HEARING">Hearing</SelectItem>
+                      <SelectItem value="ARGUMENTS">Arguments</SelectItem>
+                      <SelectItem value="JUDGMENT">Judgment</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="h-2 w-full rounded-full bg-secondary overflow-hidden">
                   <div
@@ -497,12 +612,111 @@ export default function CasesPage() {
                   <FileText className="h-4 w-4 mr-2" />
                   View Documents
                 </Button>
-                <Button variant="outline" className="flex-1 border-border bg-card hover:bg-secondary">
+                <Button
+                  variant="outline"
+                  className="flex-1 border-border bg-card hover:bg-secondary"
+                  onClick={() => {
+                    setIsScheduleHearingOpen(true)
+                    setHearingData({
+                      nextDate: selectedCase?.nextDate || "",
+                      hearingType: "",
+                      notes: "",
+                    })
+                  }}
+                >
                   <Calendar className="h-4 w-4 mr-2" />
                   Schedule Hearing
                 </Button>
               </div>
             </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Schedule Hearing Dialog */}
+        <Dialog open={isScheduleHearingOpen} onOpenChange={setIsScheduleHearingOpen}>
+          <DialogContent className="bg-card border-border text-foreground max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-semibold text-foreground">Schedule Hearing</DialogTitle>
+            </DialogHeader>
+
+            <form onSubmit={handleScheduleHearing} className="space-y-4 mt-4">
+              {hearingError && (
+                <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+                  {hearingError}
+                </div>
+              )}
+
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="nextDate">Hearing Date *</Label>
+                  <Input
+                    id="nextDate"
+                    type="date"
+                    value={hearingData.nextDate}
+                    onChange={(e) => setHearingData({ ...hearingData, nextDate: e.target.value })}
+                    className="bg-secondary/50 border-border"
+                    required
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="hearingType">Hearing Type</Label>
+                  <Select
+                    value={hearingData.hearingType}
+                    onValueChange={(value) => setHearingData({ ...hearingData, hearingType: value })}
+                  >
+                    <SelectTrigger className="bg-secondary/50 border-border">
+                      <SelectValue placeholder="Select hearing type (optional)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="FOR ORDERS">For Orders</SelectItem>
+                      <SelectItem value="INTERLOCUTORY">Interlocutory</SelectItem>
+                      <SelectItem value="FOR HEARING">For Hearing</SelectItem>
+                      <SelectItem value="FOR ADMISSION">For Admission</SelectItem>
+                      <SelectItem value="FINAL HEARING">Final Hearing</SelectItem>
+                      <SelectItem value="ARGUMENTS">Arguments</SelectItem>
+                      <SelectItem value="JUDGMENT">Judgment</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="notes">Notes</Label>
+                  <Textarea
+                    id="notes"
+                    placeholder="Add any notes or details about the hearing..."
+                    value={hearingData.notes}
+                    onChange={(e) => setHearingData({ ...hearingData, notes: e.target.value })}
+                    className="bg-secondary/50 border-border min-h-[80px]"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setIsScheduleHearingOpen(false)
+                    setHearingData({ nextDate: "", hearingType: "", notes: "" })
+                    setHearingError(null)
+                  }}
+                  className="flex-1 border-border"
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" className="flex-1 bg-cyan text-white hover:bg-cyan/90" disabled={isSubmitting}>
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Scheduling...
+                    </>
+                  ) : (
+                    "Schedule"
+                  )}
+                </Button>
+              </div>
+            </form>
           </DialogContent>
         </Dialog>
 
