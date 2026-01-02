@@ -1,36 +1,26 @@
-import { NextResponse } from "next/server";
-import { currentUser } from "@clerk/nextjs/server";
-import { connectToDatabase } from "@/lib/mongodb";
-import { Organization, OrganizationMember } from "@/lib/models";
 
-/**
- * GET /api/users/me
- * Get current user's information with role and organization from MongoDB
- */
+import { NextResponse } from 'next/server';
+import { auth, currentUser } from "@clerk/nextjs/server"
+import { connectToDatabase } from "@/lib/mongodb" // Database connection
+import { OrganizationMember, Organization } from "@/lib/models"
+
 export async function GET() {
   try {
-    const user = await currentUser();
+    const { userId } = await auth()
+    const user = await currentUser()
 
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!userId || !user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Connect to MongoDB
-    await connectToDatabase();
+    await connectToDatabase()
 
-    // Get user's organization membership from MongoDB
-    const membership = await OrganizationMember.findOne({ userId: user.id });
-
-    let organizationData = null;
+    // Fetch organization membership
+    const membership = await OrganizationMember.findOne({ userId: user.id })
+    
+    let organizationData = null
     if (membership) {
-      const organization = await Organization.findById(membership.organizationId);
-      if (organization) {
-        organizationData = {
-          id: organization._id.toString(),
-          name: organization.name,
-          slug: organization.slug,
-        };
-      }
+      organizationData = await Organization.findById(membership.organizationId)
     }
 
     return NextResponse.json({
@@ -43,15 +33,14 @@ export async function GET() {
         imageUrl: user.imageUrl,
         role: membership?.role || null,
         organizationId: membership?.organizationId?.toString() || null,
-        organizationName: organizationData?.name || null,
+        organizationName: organizationData?.name || null, // Restored field
         joinedAt: membership?.joinedAt?.toISOString() || null,
+        advocateCode: membership?.advocateCode || null, // Updated field
+        highCourt: membership?.highCourt || null, // Added field
       },
-    });
-  } catch (error: any) {
-    console.error("Error fetching user info:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch user info", message: error.message },
-      { status: 500 }
-    );
+    })
+  } catch (error) {
+    console.error("Error fetching user data:", error)
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
   }
 }

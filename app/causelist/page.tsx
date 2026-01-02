@@ -1,10 +1,9 @@
 "use client"
 
 import type React from "react"
-
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { Sidebar } from "@/components/sidebar"
-import { AIChatBar } from "@/components/ai-chat-bar"
+import { useUserContext } from "@/lib/user-context"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -20,7 +19,15 @@ import {
   Gavel,
   FileText,
   ArrowUpDown,
+  Zap,
+  ExternalLink,
+  ShieldCheck,
+  Building2,
 } from "lucide-react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Button } from "@/components/ui/button"
+import { toast } from "sonner"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 
 interface CauselistItem {
   id: string
@@ -58,260 +65,7 @@ interface CourtSection {
   items: CauselistItem[]
 }
 
-// Mock data based on the AP High Court causelist format
-const causelistData: CourtSection[] = [
-  {
-    courtNo: 11,
-    judges: ["THE HONOURABLE SRI JUSTICE R RAGHUNANDAN RAO", "THE HONOURABLE SRI JUSTICE T.C.D.SEKHAR"],
-    date: "Monday, 16th December 2025",
-    time: "10:30 AM",
-    mode: "HYBRID MODE",
-    items: [
-      {
-        id: "1",
-        sNo: 24,
-        caseNumber: "WP/26311/2024",
-        caseType: "Writ Petition",
-        party: { petitioner: "PARVATHINA SIVA KUMAR", respondent: "THE STATE OF AP" },
-        petitionerAdvocate: "T V S PRABHAKARA RAO",
-        respondentAdvocate: "GP FOR LAW LEGISLATIVE AFFAIRS",
-        district: "EAST GODAVARI",
-        remarks: "R2 R4 UNSERVED",
-        courtNo: 11,
-        judges: ["R RAGHUNANDAN RAO", "T.C.D.SEKHAR"],
-        hearingType: "FOR ORDERS",
-        iaDetails: ["IA 1/2024 - Stay Petition"],
-      },
-      {
-        id: "2",
-        sNo: 204,
-        caseNumber: "CMA/535/2014",
-        caseType: "Civil Miscellaneous Appeal",
-        party: { petitioner: "GUDEY RATAYYA", respondent: "GUNNAM RAMABABU" },
-        petitionerAdvocate: "T V S PRABHAKARA RAO",
-        respondentAdvocate: "KADIYAM NEELAKANTESWARA RAO",
-        district: "EAST GODAVARI",
-        courtNo: 11,
-        judges: ["R RAGHUNANDAN RAO", "T.C.D.SEKHAR"],
-        hearingType: "INTERLOCUTORY",
-        iaDetails: ["IA 2/2014 - Receive Docs Petition", "ARISING FROM (OP/350/2011)"],
-      },
-      {
-        id: "3",
-        sNo: 218,
-        caseNumber: "WP/6759/2023",
-        caseType: "Writ Petition",
-        party: { petitioner: "ADABALA VENKATA SUBBA RAO", respondent: "THE STATE OF ANDHRA PRADESH" },
-        petitionerAdvocate: "T V S PRABHAKARA RAO",
-        respondentAdvocate: "GP FOR HOME",
-        district: "WEST GODAVARI",
-        remarks: "R3 R4 R5 UNSERVED",
-        courtNo: 11,
-        judges: ["R RAGHUNANDAN RAO", "T.C.D.SEKHAR"],
-        hearingType: "INTERLOCUTORY",
-        iaDetails: ["IA 1/2023 - Suspension Petition"],
-      },
-      {
-        id: "4",
-        sNo: 292,
-        caseNumber: "WP/6398/2017",
-        caseType: "Writ Petition",
-        party: {
-          petitioner: "THE CONVENTION OF BAPTIST CHURCHES OF THE NORTHERN CIRCARS",
-          respondent: "STATE OF ANDHRA PRADESH REVENUE STAMPS & REGISTRATION",
-        },
-        petitionerAdvocate: "T V S PRABHAKARA RAO",
-        respondentAdvocate: "GP FOR REVENUE (AP)",
-        district: "EAST GODAVARI",
-        courtNo: 11,
-        judges: ["R RAGHUNANDAN RAO", "T.C.D.SEKHAR"],
-        hearingType: "FOR HEARING",
-        iaDetails: ["IA 1/2017 - Direction Petition", "IA 1/2022 - Amendment Petition"],
-      },
-    ],
-  },
-  {
-    courtNo: 15,
-    judges: ["THE HONOURABLE SRI JUSTICE VENKATESWARLU NIMMAGADDA"],
-    date: "Monday, 16th December 2025",
-    time: "10:30 AM",
-    mode: "HYBRID MODE",
-    items: [
-      {
-        id: "5",
-        sNo: 25,
-        caseNumber: "CC/1242/2025",
-        caseType: "Contempt Case",
-        party: { petitioner: "PALLI KUMAR RAJA", respondent: "MVV KISHORE" },
-        petitionerAdvocate: "T V S PRABHAKARA RAO",
-        respondentAdvocate: "VENKATA SAI KRISHNA PONNURU",
-        district: "EAST GODAVARI",
-        courtNo: 15,
-        judges: ["VENKATESWARLU NIMMAGADDA"],
-        hearingType: "FOR ADMISSION",
-        iaDetails: ["ARISING FROM (WP/18929/2023)"],
-      },
-      {
-        id: "6",
-        sNo: 103,
-        caseNumber: "CMA/50/2025",
-        caseType: "Civil Miscellaneous Appeal",
-        party: { petitioner: "VIYYAPU TATA RAO", respondent: "AKULA VARAHA SATYAVATHI" },
-        petitionerAdvocate: "KALEEMULLA S",
-        respondentAdvocate: "T V S PRABHAKARA RAO",
-        district: "VISAKHAPATNAM",
-        remarks: "MEMO PROOF OF SERVICE FILED. TRIAL COURT RECORD RECEIVED",
-        courtNo: 15,
-        judges: ["VENKATESWARLU NIMMAGADDA"],
-        hearingType: "INTERLOCUTORY",
-        iaDetails: ["IA 1/2025 - Suspension Petition", "IA 2/2025 - Vacate Stay Petition"],
-      },
-    ],
-  },
-  {
-    courtNo: 16,
-    judges: ["THE HONOURABLE SRI JUSTICE TARLADA RAJASEKHAR RAO"],
-    date: "Monday, 16th December 2025",
-    time: "After Motion List",
-    mode: "HYBRID MODE",
-    items: [
-      {
-        id: "7",
-        sNo: 74,
-        caseNumber: "WP/20649/2023",
-        caseType: "Writ Petition",
-        party: { petitioner: "AMBALAL PATEL", respondent: "THE STATE OF ANDHRA PRADESH" },
-        petitionerAdvocate: "T V S PRABHAKARA RAO",
-        respondentAdvocate: "GP FOR REVENUE",
-        district: "VISAKHAPATNAM",
-        remarks: "HCJ NOTE CASE",
-        courtNo: 16,
-        judges: ["TARLADA RAJASEKHAR RAO"],
-        hearingType: "FOR HEARING",
-        iaDetails: ["IA 1/2023 - Suspension Petition", "IA 1/2024 - Leave Petition", "IA 2/2024 - Fix an Early Date"],
-      },
-      {
-        id: "8",
-        sNo: 75,
-        caseNumber: "WP/17286/2022",
-        caseType: "Writ Petition",
-        party: { petitioner: "AMBALAL PATEL", respondent: "THE STATE OF ANDHRA PRADESH" },
-        petitionerAdvocate: "T V S PRABHAKARA RAO",
-        respondentAdvocate: "GP FOR REVENUE, GP FOR REGISTRATION AND STAMPS",
-        district: "VISAKHAPATNAM",
-        courtNo: 16,
-        judges: ["TARLADA RAJASEKHAR RAO"],
-        hearingType: "FOR HEARING",
-        iaDetails: ["IA 1/2022 - Direction Petition", "IA 2/2022 - Direction Petition"],
-      },
-    ],
-  },
-  {
-    courtNo: 18,
-    judges: ["THE HONOURABLE SRI JUSTICE D RAMESH"],
-    date: "Monday, 16th December 2025",
-    time: "After Motion List",
-    mode: "HYBRID MODE",
-    items: [
-      {
-        id: "9",
-        sNo: 127,
-        caseNumber: "CRP/3235/2025",
-        caseType: "Civil Revision Petition",
-        party: { petitioner: "KALEPU @ VEDA PAVANI", respondent: "KALEPU SATISH" },
-        petitionerAdvocate: "T V S PRABHAKARA RAO",
-        respondentAdvocate: "-",
-        district: "WEST GODAVARI",
-        courtNo: 18,
-        judges: ["D RAMESH"],
-        hearingType: "FOR ADMISSION",
-        iaDetails: ["IA 1/2025 - Suspension Petition", "ARISING FROM (H.M.O.P/37/2024)"],
-      },
-    ],
-  },
-  {
-    courtNo: 22,
-    judges: ["THE HONOURABLE SRI JUSTICE RAVI NATH TILHARI", "THE HONOURABLE SRI JUSTICE B V L N CHAKRAVARTHI"],
-    date: "Monday, 16th December 2025",
-    time: "10:30 AM",
-    mode: "HYBRID MODE",
-    notes: [
-      "THE PASSOVER MATTERS IN THE LIST WILL BE TAKEN UP AFTER THE COMPLETION OF THIS LIST",
-      "ANY MENTIONS FROM OUT OF THE LIST CASES SHALL NOT BE ENTERTAINED IF THE MENTION SLIP DOES NOT CONTAIN THE NATURE OF URGENCY",
-      "AFTER MOTION LIST - WEEKLY LIST WILL BE TAKEN UP",
-      "THE OLD MATTERS MAY NOT BE ADJOURNED AND THEY WILL BE TAKEN UP AT 03:30PM",
-    ],
-    items: [
-      {
-        id: "10",
-        sNo: 3,
-        caseNumber: "WA/514/2022",
-        caseType: "Writ Appeal",
-        party: { petitioner: "THE COMMISSIONER", respondent: "V.MURALI MOHAN" },
-        petitionerAdvocate: "GP FOR ENDOWMENTS (AP)",
-        respondentAdvocate: "T V S PRABHAKARA RAO",
-        district: "VIZIANAGARAM",
-        remarks: "HCJ NOTE",
-        courtNo: 22,
-        judges: ["RAVI NATH TILHARI", "B V L N CHAKRAVARTHI"],
-        hearingType: "SPECIALLY MENTIONED",
-        iaDetails: ["IA 1/2022 - Suspension Petition"],
-      },
-    ],
-  },
-  {
-    courtNo: 6,
-    judges: ["THE HONOURABLE SRI JUSTICE T MALLIKARJUNA RAO"],
-    date: "Monday, 16th December 2025",
-    time: "10:30 AM",
-    mode: "HYBRID MODE",
-    items: [
-      {
-        id: "11",
-        sNo: 56,
-        caseNumber: "CRLRC/3529/2018",
-        caseType: "Criminal Revision Case",
-        party: { petitioner: "SUNKU SURENDRA", respondent: "VALLURU BHASKAR REDDY" },
-        petitionerAdvocate: "GVVSR SUBRAHMANYAM",
-        respondentAdvocate: "T V S PRABHAKARA RAO, PUBLIC PROSECUTOR",
-        district: "SPS NELLORE",
-        remarks: "TRIAL COURT RECORD NOT RECEIVED",
-        courtNo: 6,
-        judges: ["T MALLIKARJUNA RAO"],
-        hearingType: "FINAL HEARING",
-        iaDetails: ["IA 1/2019 - Vacate Stay Petition"],
-      },
-    ],
-  },
-  {
-    courtNo: 9,
-    judges: ["THE HONOURABLE SRI JUSTICE V SRINIVAS"],
-    date: "Monday, 16th December 2025",
-    time: "10:30 AM",
-    mode: "HYBRID MODE",
-    items: [
-      {
-        id: "12",
-        sNo: 3,
-        caseNumber: "AS/132/2009",
-        caseType: "Appeal Suit",
-        party: { petitioner: "MANCHIRAJU MANGARAJU", respondent: "MANCHIRAJU SUBBARAO" },
-        petitionerAdvocate: "G SUBASH",
-        respondentAdvocate: "T V S PRABHAKARA RAO, M S R SASHI BHUSHAN",
-        district: "EAST GODAVARI",
-        remarks: "PAPER BOOK NOT AVAILABLE",
-        courtNo: 9,
-        judges: ["V SRINIVAS"],
-        hearingType: "OLD MATTERS",
-        iaDetails: [
-          "IA 1/2018 - Condone Delay Petition",
-          "IA 2/2018 - Set Aside Abatement",
-          "IA 3/2018 - L R Petition",
-        ],
-      },
-    ],
-  },
-]
+
 
 type SortField = "sNo" | "caseNumber" | "petitioner" | "district" | "hearingType"
 type SortDirection = "asc" | "desc"
@@ -328,10 +82,82 @@ const hearingTypeBadgeColor: Record<CauselistItem["hearingType"], string> = {
 
 export default function CauselistPage() {
   const [searchQuery, setSearchQuery] = useState("")
-  const [expandedCourts, setExpandedCourts] = useState<number[]>(causelistData.map((c) => c.courtNo))
+  const [expandedCourts, setExpandedCourts] = useState<number[]>([])
   const [selectedItem, setSelectedItem] = useState<CauselistItem | null>(null)
   const [sortField, setSortField] = useState<SortField>("sNo")
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc")
+  const [showOnlyMyCases, setShowOnlyMyCases] = useState(false)
+  
+  // Connect State
+  const [selectedState, setSelectedState] = useState<string>("")
+  const [modalLawyerId, setModalLawyerId] = useState("")
+  const [isSubmittingConnect, setIsSubmittingConnect] = useState(false)
+  const [syncedCases, setSyncedCases] = useState<CourtSection[]>([])
+
+  const { user, refreshUser, isLoading } = useUserContext()
+
+  // Redirect to setup if no organization (client-side check)
+  if (!isLoading && user && !user.organizationId) {
+     if (typeof window !== 'undefined') window.location.href = '/setup';
+  }
+
+  // Load persisted synced data
+  useEffect(() => {
+      const fetchSyncedData = async () => {
+          if (!user?.advocateCode) return;
+          
+          try {
+              const response = await fetch('/api/sync/aphc');
+              if (response.ok) {
+                  const result = await response.json();
+                  if (result.success && result.count > 0) {
+                      console.log("Loaded persisted causelist data:", result.count);
+                      
+                       // Map synced data to UI Logic (Reused logic)
+                        const mappedItems: CauselistItem[] = result.data.map((item: any, index: number) => ({
+                             id: `persisted-${index}`,
+                             sNo: parseInt(item.sNo) || index + 1,
+                             caseNumber: item.caseDet ? item.caseDet.split(' ')[0] : "Unknown",
+                             caseType: "Synced Case", 
+                             party: {
+                                 petitioner: item.party ? item.party.split('Vs')[0]?.trim() : "Unknown",
+                                 respondent: item.party ? item.party.split('Vs')[1]?.trim() : "Unknown"
+                             },
+                             petitionerAdvocate: item.petAdv,
+                             respondentAdvocate: item.resAdv,
+                             district: item.district,
+                             courtNo: 1, 
+                             judges: ["Andhra Pradesh High Court"],
+                             hearingType: "FOR HEARING",
+                             iaDetails: [item.caseDet],
+                             remarks: ""
+                        }));
+            
+                        const syncedSection: CourtSection = {
+                            courtNo: 1,
+                            judges: ["Andhra Pradesh High Court"],
+                            date: new Date().toLocaleDateString(),
+                            time: "10:30 AM",
+                            mode: "Physical/Hybrid",
+                            items: mappedItems
+                        };
+            
+                        setSyncedCases([syncedSection]);
+                        setExpandedCourts([1]); // Auto-expand the synced court
+                  } else {
+                      console.log("No synced data found or count is 0");
+                  }
+              }
+          } catch (error) {
+              console.error("Failed to load synced data", error);
+          }
+      };
+      
+      console.log("Checking for user sync:", { code: user?.advocateCode, isLoading });
+      if (user?.advocateCode && !isLoading) {
+          fetchSyncedData();
+      }
+  }, [user?.advocateCode, isLoading]);
 
   const tomorrow = new Date()
   tomorrow.setDate(tomorrow.getDate() + 1)
@@ -355,14 +181,108 @@ export default function CauselistPage() {
     }
   }
 
+  const handleConnectSubmit = async () => {
+    if (!selectedState || !modalLawyerId) {
+      toast.error("Please fill in all fields")
+      return
+    }
+
+    setIsSubmittingConnect(true)
+    try {
+      // Logic: Only run full automation sync if state is Andhra Pradesh
+      // Otherwise, just update the profile and show success.
+      
+      const isAndhraPradesh = selectedState === "Andhra Pradesh" || selectedState === "Andhrapradesh";
+      
+      if (isAndhraPradesh) {
+         // 1. Trigger Automation Sync AND Profile Update (handled by sync api for simplicity or separately)
+         // Actually sync api expects advocateCode. It will store data in UserCauselist.
+         // We should ALSO update the profile so the user has the code permanently.
+         
+          const syncResponse = await fetch('/api/sync/aphc', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ advocateCode: modalLawyerId, highCourt: selectedState }),
+          });
+
+          const syncResult = await syncResponse.json();
+          
+          if (syncResult.success) {
+            console.log("Fetched Cause List JSON:", syncResult.data);
+            toast.success(syncResult.message || "Synced with High Court successfully");
+
+            // Map synced data to UI Logic
+            const mappedItems: CauselistItem[] = syncResult.data.map((item: any, index: number) => ({
+                 id: `synced-${index}`,
+                 sNo: parseInt(item.sNo) || index + 1,
+                 caseNumber: item.caseDet ? item.caseDet.split(' ')[0] : "Unknown",
+                 caseType: "Synced Case", 
+                 party: {
+                     petitioner: item.party ? item.party.split('Vs')[0]?.trim() : "Unknown",
+                     respondent: item.party ? item.party.split('Vs')[1]?.trim() : "Unknown"
+                 },
+                 petitionerAdvocate: item.petAdv,
+                 respondentAdvocate: item.resAdv,
+                 district: item.district,
+                 courtNo: 1, 
+                 judges: ["Andhra Pradesh High Court"],
+                 hearingType: "FOR HEARING",
+                 iaDetails: [item.caseDet],
+                 remarks: ""
+            }));
+
+            const syncedSection: CourtSection = {
+                courtNo: 1,
+                judges: ["Andhra Pradesh High Court"],
+                date: new Date().toLocaleDateString(),
+                time: "10:30 AM",
+                mode: "Physical/Hybrid",
+                items: mappedItems
+            };
+
+            setSyncedCases([syncedSection]);
+          } else {
+             // If automation fails, we might still want to proceed with just profile update?
+             // Or throw error. Let's throw error to be safe.
+             throw new Error(syncResult.error || "Failed to sync with High Court");
+          }
+      }
+
+      // 2. Always Update Profile with ID and High Court
+      const profileResponse = await fetch('/api/users/profile', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ advocateCode: modalLawyerId, highCourt: selectedState }),
+      });
+
+      if (profileResponse.ok) {
+           await refreshUser();
+           if (!isAndhraPradesh) {
+               toast.success(`Connected to ${selectedState} successfully. (Automation pending for this region)`);
+           }
+      } else {
+           const err = await profileResponse.json();
+           throw new Error(err.error || "Failed to update profile");
+      }
+
+    } catch (error: any) {
+      console.error(error);
+      toast.error(error.message || 'Error connecting to portal')
+    } finally {
+      setIsSubmittingConnect(false)
+    }
+  }
+
+  const displayData = syncedCases;
+
   const filteredData = useMemo(() => {
-    return causelistData
+    return displayData
       .map((court) => ({
         ...court,
         items: court.items
           .filter((item) => {
             const query = searchQuery.toLowerCase()
-            return (
+            const matchesSearch = (
               item.caseNumber.toLowerCase().includes(query) ||
               item.party.petitioner.toLowerCase().includes(query) ||
               item.party.respondent.toLowerCase().includes(query) ||
@@ -370,6 +290,18 @@ export default function CauselistPage() {
               item.respondentAdvocate.toLowerCase().includes(query) ||
               item.district.toLowerCase().includes(query)
             )
+
+            if (!matchesSearch) return false
+
+            if (showOnlyMyCases && user?.advocateCode) {
+              const advocateCodeKey = user.advocateCode.toLowerCase()
+              return (
+                item.petitionerAdvocate.toLowerCase().includes(advocateCodeKey) ||
+                item.respondentAdvocate.toLowerCase().includes(advocateCodeKey)
+              )
+            }
+
+            return true
           })
           .sort((a, b) => {
             let comparison = 0
@@ -394,7 +326,7 @@ export default function CauselistPage() {
           }),
       }))
       .filter((court) => court.items.length > 0)
-  }, [searchQuery, sortField, sortDirection])
+  }, [searchQuery, sortField, sortDirection, showOnlyMyCases, user?.advocateCode])
 
   const totalCases = filteredData.reduce((sum, court) => sum + court.items.length, 0)
 
@@ -416,6 +348,95 @@ export default function CauselistPage() {
     </TableHead>
   )
 
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <Sidebar />
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan"></div>
+      </div>
+    )
+  }
+
+  // If no advocateCode, show centered connection card instead of tables
+  if (!user?.advocateCode) {
+    return (
+        <div className="flex min-h-screen flex-col bg-background">
+          <Sidebar />
+          <div className="flex-1 ml-16 flex items-center justify-center p-6 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-cyan/5 via-transparent to-transparent">
+            <Card className="w-full max-w-[550px] border-card-border bg-card/40 backdrop-blur-md shadow-2xl animate-in fade-in zoom-in-95 duration-700">
+              <CardHeader className="text-center pb-2">
+                <div className="mx-auto h-20 w-20 rounded-2xl bg-gradient-to-br from-cyan/20 to-teal/10 flex items-center justify-center mb-8 relative group">
+                   <div className="absolute inset-0 bg-cyan/20 blur-xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                   <Building2 className="h-10 w-10 text-cyan relative z-10" />
+                </div>
+                <CardTitle className="text-4xl font-black text-white tracking-tight uppercase">Litigation Sync</CardTitle>
+                <CardDescription className="text-muted-foreground text-lg mt-3 max-w-[400px] mx-auto leading-relaxed">
+                  Connect your professional profile to the High Court portals for unified case intelligence.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="pt-8 px-10">
+                <div className="grid gap-8">
+                  <div className="grid gap-3">
+                    <label className="text-xs font-bold text-cyan uppercase tracking-widest px-1 flex items-center gap-2">
+                      <MapPin className="h-3.5 w-3.5" /> High Court Jurisdiction
+                    </label>
+                    <Select onValueChange={setSelectedState} value={selectedState}>
+                      <SelectTrigger className="h-14 bg-white/5 border-white/10 focus:ring-cyan/20 text-foreground text-base rounded-xl transition-all hover:bg-white/10">
+                        <SelectValue placeholder="Select Court Location" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-card border-card-border">
+                        <SelectItem value="Telangana">Telangana High Court</SelectItem>
+                        <SelectItem value="Andhrapradesh">Andhra Pradesh High Court</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-3">
+                    <label className="text-xs font-bold text-cyan uppercase tracking-widest px-1 flex items-center gap-2">
+                      <Users className="h-3.5 w-3.5" /> Advocate Identification
+                    </label>
+                    <Input
+                      placeholder="Enter Name or registration ID (e.g. T V S PRABHAKARA RAO)"
+                      value={modalLawyerId}
+                      onChange={(e) => setModalLawyerId(e.target.value)}
+                      className="h-14 bg-white/5 border-white/10 focus:ring-cyan/20 text-base rounded-xl transition-all hover:bg-white/10 placeholder:text-muted-foreground/50"
+                    />
+                    <div className="flex items-center justify-between px-1">
+                      <p className="text-[10px] text-muted-foreground/60 flex items-center gap-1 uppercase font-semibold">
+                        <ShieldCheck className="h-3 w-3" /> Secure Port Connection
+                      </p>
+                      <p className="text-[10px] text-muted-foreground/40 italic">Match court records exactly</p>
+                    </div>
+                  </div>
+                  <Button 
+                    onClick={handleConnectSubmit} 
+                    className="w-full bg-cyan hover:bg-cyan/90 text-white font-black h-14 text-xl tracking-wide shadow-2xl shadow-cyan/30 transition-all hover:scale-[1.02] active:scale-[0.98] rounded-xl group overflow-hidden relative"
+                    disabled={isSubmittingConnect || !selectedState || !modalLawyerId}
+                  >
+                    <div className="absolute inset-0 bg-white/10 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 skew-x-12"></div>
+                    {isSubmittingConnect ? (
+                      <div className="flex items-center gap-3">
+                        <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
+                        <span>Initializing Sync...</span>
+                      </div>
+                    ) : (
+                      <span className="flex items-center gap-2">
+                        Initialize Practice Sync <ExternalLink className="h-5 w-5 opacity-50" />
+                      </span>
+                    )}
+                  </Button>
+                </div>
+              </CardContent>
+              <div className="mt-4 pb-8 text-center px-10">
+                 <p className="text-[10px] text-muted-foreground/30 leading-normal">
+                    By initializing sync, you grant Lawptimize permission to retrieve and index your publicly available court filings and schedule data from official High Court servers.
+                 </p>
+              </div>
+            </Card>
+          </div>
+        </div>
+    )
+  }
+
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <Sidebar />
@@ -428,6 +449,15 @@ export default function CauselistPage() {
                 <Badge variant="outline" className="bg-cyan/10 text-cyan border-cyan/30">
                   {totalCases} Cases Tomorrow
                 </Badge>
+                {user?.advocateCode && (
+                   <Badge 
+                    variant="outline" 
+                    className={`cursor-pointer transition-all ${showOnlyMyCases ? 'bg-cyan text-white border-cyan' : 'bg-muted/50 text-muted-foreground border-card-border hover:border-cyan/50'}`}
+                    onClick={() => setShowOnlyMyCases(!showOnlyMyCases)}
+                   >
+                     My Cases: {user.advocateCode}
+                   </Badge>
+                )}
               </div>
               <p className="text-muted-foreground">Cases scheduled for {tomorrowFormatted}</p>
             </div>
@@ -536,10 +566,10 @@ export default function CauselistPage() {
                           <TableCell className="font-medium text-foreground">{item.sNo}</TableCell>
                           <TableCell>
                             <div>
-                              <span className="font-medium text-cyan">{item.caseNumber}</span>
-                              {item.iaDetails && item.iaDetails.length > 0 && (
-                                <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{item.iaDetails[0]}</p>
-                              )}
+                                <span className="font-medium text-cyan">{item.caseNumber}</span>
+                                {item.iaDetails && item.iaDetails.length > 0 && (
+                                  <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{item.iaDetails[0]}</p>
+                                )}
                             </div>
                           </TableCell>
                           <TableCell>
@@ -584,11 +614,9 @@ export default function CauselistPage() {
         </div>
       </div>
 
-      <AIChatBar />
-
       {/* Case Detail Modal */}
       <Dialog open={!!selectedItem} onOpenChange={() => setSelectedItem(null)}>
-        <DialogContent className="max-w-2xl bg-card border-card-border text-foreground">
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto bg-card border-card-border text-foreground">
           {selectedItem && (
             <>
               <DialogHeader>

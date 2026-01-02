@@ -15,6 +15,8 @@ interface UserContextType {
     organizationId: string | null;
     organizationName: string | null;
     joinedAt: string | null;
+    advocateCode: string | null;
+    highCourt: string | null;
   } | null;
   isLoading: boolean;
   isAdmin: boolean;
@@ -37,7 +39,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     }
 
     try {
-      const response = await fetch('/api/users/me');
+      const response = await fetch('/api/users/me', { cache: 'no-store' });
       if (response.ok) {
         const data = await response.json();
         setUser(data.user);

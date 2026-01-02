@@ -2,7 +2,7 @@ export { default as Organization } from './Organization';
 export type { IOrganization } from './Organization';
 
 export { default as OrganizationMember } from './OrganizationMember';
-export type { IOrganizationMember, MemberRole, MemberStatus } from './OrganizationMember';
+export type { IOrganizationMember } from './OrganizationMember';
 
 export { default as Case } from './Case';
 export type { ICase } from './Case';
@@ -21,3 +21,6 @@ export type { IInvoice } from './Invoice';
 
 export { default as InvoiceCounter } from './InvoiceCounter';
 export type { IInvoiceCounter } from './InvoiceCounter';
+
+export { default as UserCauselist } from './UserCauselist';
+export type { IUserCauselist } from './UserCauselist';
