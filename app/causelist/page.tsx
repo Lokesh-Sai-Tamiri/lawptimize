@@ -96,12 +96,9 @@ export default function CauselistPage() {
 
   const { user, refreshUser, isLoading } = useUserContext()
 
-  // Redirect to setup if no organization (client-side check)
   if (!isLoading && user && !user.organizationId) {
      if (typeof window !== 'undefined') window.location.href = '/setup';
   }
-
-  // Load persisted synced data
   useEffect(() => {
       const fetchSyncedData = async () => {
           if (!user?.advocateCode) return;
@@ -193,13 +190,12 @@ export default function CauselistPage() {
       // Otherwise, just update the profile and show success.
       
       const isAndhraPradesh = selectedState === "Andhra Pradesh" || selectedState === "Andhrapradesh";
+      const isTelangana = selectedState === "Telangana";
       
-      if (isAndhraPradesh) {
-         // 1. Trigger Automation Sync AND Profile Update (handled by sync api for simplicity or separately)
-         // Actually sync api expects advocateCode. It will store data in UserCauselist.
-         // We should ALSO update the profile so the user has the code permanently.
-         
-          const syncResponse = await fetch('/api/sync/aphc', {
+      if (isAndhraPradesh || isTelangana) {
+          const apiEndpoint = isAndhraPradesh ? '/api/sync/aphc' : '/api/sync/tshc';
+
+          const syncResponse = await fetch(apiEndpoint, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ advocateCode: modalLawyerId, highCourt: selectedState }),
@@ -209,13 +205,13 @@ export default function CauselistPage() {
           
           if (syncResult.success) {
             console.log("Fetched Cause List JSON:", syncResult.data);
-            toast.success(syncResult.message || "Synced with High Court successfully");
+            toast.success(syncResult.message || `Synced with ${selectedState} High Court successfully`);
 
             // Map synced data to UI Logic
             const mappedItems: CauselistItem[] = syncResult.data.map((item: any, index: number) => ({
                  id: `synced-${index}`,
                  sNo: parseInt(item.sNo) || index + 1,
-                 caseNumber: item.caseDet ? item.caseDet.split(' ')[0] : "Unknown",
+                 caseNumber: item.caseDet ? item.caseDet.split(' ')[0] : (item.caseNumber || "Unknown"),
                  caseType: "Synced Case", 
                  party: {
                      petitioner: item.party ? item.party.split('Vs')[0]?.trim() : "Unknown",
@@ -223,17 +219,17 @@ export default function CauselistPage() {
                  },
                  petitionerAdvocate: item.petAdv,
                  respondentAdvocate: item.resAdv,
-                 district: item.district,
+                 district: item.district || "High Court",
                  courtNo: 1, 
-                 judges: ["Andhra Pradesh High Court"],
+                 judges: [isAndhraPradesh ? "Andhra Pradesh High Court" : "Telangana High Court"],
                  hearingType: "FOR HEARING",
-                 iaDetails: [item.caseDet],
+                 iaDetails: item.caseDet ? [item.caseDet] : [],
                  remarks: ""
             }));
 
             const syncedSection: CourtSection = {
                 courtNo: 1,
-                judges: ["Andhra Pradesh High Court"],
+                judges: [isAndhraPradesh ? "Andhra Pradesh High Court" : "Telangana High Court"],
                 date: new Date().toLocaleDateString(),
                 time: "10:30 AM",
                 mode: "Physical/Hybrid",
@@ -242,8 +238,6 @@ export default function CauselistPage() {
 
             setSyncedCases([syncedSection]);
           } else {
-             // If automation fails, we might still want to proceed with just profile update?
-             // Or throw error. Let's throw error to be safe.
              throw new Error(syncResult.error || "Failed to sync with High Court");
           }
       }
@@ -257,7 +251,7 @@ export default function CauselistPage() {
 
       if (profileResponse.ok) {
            await refreshUser();
-           if (!isAndhraPradesh) {
+           if (!isAndhraPradesh && !isTelangana) {
                toast.success(`Connected to ${selectedState} successfully. (Automation pending for this region)`);
            }
       } else {
@@ -326,7 +320,7 @@ export default function CauselistPage() {
           }),
       }))
       .filter((court) => court.items.length > 0)
-  }, [searchQuery, sortField, sortDirection, showOnlyMyCases, user?.advocateCode])
+  }, [displayData, searchQuery, sortField, sortDirection, showOnlyMyCases, user?.advocateCode])
 
   const totalCases = filteredData.reduce((sum, court) => sum + court.items.length, 0)
 
@@ -392,10 +386,11 @@ export default function CauselistPage() {
                   </div>
                   <div className="grid gap-3">
                     <label className="text-xs font-bold text-cyan uppercase tracking-widest px-1 flex items-center gap-2">
-                      <Users className="h-3.5 w-3.5" /> Advocate Identification
+                      <Users className="h-3.5 w-3.5" /> 
+                      {selectedState === "Telangana" ? "Advocate Name" : "Advocate Identification"}
                     </label>
                     <Input
-                      placeholder="Enter Name or registration ID (e.g. T V S PRABHAKARA RAO)"
+                      placeholder={selectedState === "Telangana" ? "Enter Full Name (e.g. John Doe)" : "Enter Name or registration ID (e.g. T V S PRABHAKARA RAO)"}
                       value={modalLawyerId}
                       onChange={(e) => setModalLawyerId(e.target.value)}
                       className="h-14 bg-white/5 border-white/10 focus:ring-cyan/20 text-base rounded-xl transition-all hover:bg-white/10 placeholder:text-muted-foreground/50"

@@ -63,6 +63,7 @@ export async function GET(request: Request) {
       status: t.status,
       createdAt: formatDate(t.createdAt),
       updatedAt: t.updatedAt.toISOString(),
+      comments: t.comments || [],
     }));
 
     return NextResponse.json({
@@ -156,6 +157,7 @@ export async function POST(request: Request) {
         status: newTask.status,
         createdAt: formatDate(newTask.createdAt),
         updatedAt: newTask.updatedAt.toISOString(),
+        comments: [],
       },
     });
   } catch (error: any) {

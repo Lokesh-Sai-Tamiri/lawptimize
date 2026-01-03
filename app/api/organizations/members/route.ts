@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
+import { auth, clerkClient } from '@clerk/nextjs/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { OrganizationMember } from '@/lib/models';
 
@@ -36,19 +36,45 @@ export async function GET() {
       organizationId: currentMembership.organizationId,
     }).sort({ joinedAt: -1 });
 
+    // Fetch user details from Clerk
+    const userIds = members.map(m => m.userId);
+    const client = await clerkClient();
+    
+    // getUserList accepts userId as explicit string[] if needed, but signature varies by version
+    // Usually passing userId array works as an OR filter
+    const usersResponse = await client.users.getUserList({ 
+        userId: userIds,
+        limit: 100 
+    });
+    
+    // Handle pagination wrapper if present (usersResponse.data vs usersResponse)
+    const users = usersResponse.data || usersResponse; 
+    
+    const usersMap = new Map(users.map((u: any) => [u.id, u]));
+
     return NextResponse.json({
       success: true,
-      members: members.map((member) => ({
-        id: member._id.toString(),
-        userId: member.userId,
-        email: member.email,
-        firstName: member.firstName,
-        lastName: member.lastName,
-        role: member.role,
-        status: member.status,
-        joinedAt: member.joinedAt,
-        invitedAt: member.invitedAt,
-      })),
+      members: members.map((member) => {
+        const user = usersMap.get(member.userId);
+        const email = user?.emailAddresses?.[0]?.emailAddress;
+        
+        return {
+          id: member._id.toString(),
+          userId: member.userId,
+          email: email || member.userId,
+          // Prioritize local overrides, fallback to Clerk
+          firstName: member.firstName || user?.firstName || null,
+          lastName: member.lastName || user?.lastName || null,
+          role: member.role,
+          status: 'active',
+          joinedAt: member.joinedAt || member.createdAt,
+          invitedAt: member.createdAt,
+          // Extra details
+          advocateCode: member.advocateCode || null,
+          highCourt: member.highCourt || null,
+          phoneNumber: member.phoneNumber || null,
+        };
+      }),
     });
   } catch (error: any) {
     console.error('Error fetching organization members:', error);
@@ -125,6 +151,16 @@ export async function DELETE(request: Request) {
       );
     }
 
+    // Remove user from Clerk
+    try {
+      const client = await clerkClient();
+      await client.users.deleteUser(memberUserId);
+    } catch (clerkError: any) {
+      console.error('Error removing user from Clerk:', clerkError);
+      // We don't fail the request if Clerk deletion fails, as the member is already removed from our DB
+      // But we might want to inform the admin or log it
+    }
+
     return NextResponse.json({
       success: true,
       message: 'Member removed successfully',
@@ -174,21 +210,31 @@ export async function PATCH(request: Request) {
     }
 
     const body = await request.json();
-    const { memberUserId, role } = body;
+    const { memberUserId, role, firstName, lastName, advocateCode, highCourt, phoneNumber } = body;
 
-    if (!memberUserId || !role) {
+    if (!memberUserId) {
       return NextResponse.json(
-        { error: 'Member user ID and role are required' },
+        { error: 'Member user ID is required' },
         { status: 400 }
       );
     }
 
-    if (!['admin', 'user'].includes(role)) {
-      return NextResponse.json(
-        { error: 'Invalid role. Must be "admin" or "user"' },
-        { status: 400 }
-      );
+    const updateData: any = {};
+    if (role) {
+      if (!['admin', 'user'].includes(role)) {
+        return NextResponse.json(
+          { error: 'Invalid role. Must be "admin" or "user"' },
+          { status: 400 }
+        );
+      }
+      updateData.role = role;
     }
+
+    if (firstName !== undefined) updateData.firstName = firstName;
+    if (lastName !== undefined) updateData.lastName = lastName;
+    if (advocateCode !== undefined) updateData.advocateCode = advocateCode;
+    if (highCourt !== undefined) updateData.highCourt = highCourt;
+    if (phoneNumber !== undefined) updateData.phoneNumber = phoneNumber;
 
     // Update member role in database
     const member = await OrganizationMember.findOneAndUpdate(
@@ -196,7 +242,7 @@ export async function PATCH(request: Request) {
         organizationId: currentMembership.organizationId,
         userId: memberUserId,
       },
-      { $set: { role } },
+      { $set: updateData },
       { new: true }
     );
 

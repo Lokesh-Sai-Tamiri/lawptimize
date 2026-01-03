@@ -2,6 +2,7 @@
 
 import type React from "react"
 import { useState, useEffect } from "react"
+import { useUser } from "@clerk/nextjs"
 import { Sidebar } from "@/components/sidebar"
 import { AIChatBar } from "@/components/ai-chat-bar"
 import { PageHeader } from "@/components/page-header"
@@ -63,6 +64,12 @@ interface Task {
   priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT"
   status: "todo" | "inProgress" | "completed"
   createdAt: string
+  comments?: {
+    userId: string
+    userName: string
+    content: string
+    createdAt: string
+  }[]
 }
 
 interface Member {
@@ -110,7 +117,16 @@ export default function TasksPage() {
   const [showNewTaskDialog, setShowNewTaskDialog] = useState(false)
   const [editingTask, setEditingTask] = useState<Task | null>(null)
   const [taskToDelete, setTaskToDelete] = useState<Task | null>(null)
+
   const [isSubmitting, setIsSubmitting] = useState(false)
+  
+  // Comments state
+  const [newComment, setNewComment] = useState("")
+  const [isPostingComment, setIsPostingComment] = useState(false)
+
+  const { user } = useUser()
+  
+  const currentUserRole = members.find(m => m.userId === user?.id)?.role || 'member'
 
   // New task form state
   const [newTask, setNewTask] = useState({
@@ -374,6 +390,36 @@ export default function TasksPage() {
       alert(err.message)
     } finally {
       setIsSubmitting(false)
+    }
+  }
+
+  const handleAddComment = async () => {
+    if (!selectedTask || !newComment.trim()) return
+
+    try {
+      setIsPostingComment(true)
+      const response = await fetch(`/api/tasks/${selectedTask.id}/comments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: newComment })
+      })
+
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.error)
+
+      // Update local state
+      const updatedTask = {
+        ...selectedTask,
+        comments: [...(selectedTask.comments || []), data.comment]
+      } // data.comment has createdAt as Date string from JSON? No, Date object? standard fetch returns JSON string.
+
+      setTasks(prev => prev.map(t => t.id === selectedTask.id ? updatedTask : t))
+      setSelectedTask(updatedTask)
+      setNewComment("")
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setIsPostingComment(false)
     }
   }
 
@@ -645,28 +691,88 @@ export default function TasksPage() {
                   </span>
                 </div>
               </div>
-            </div>
+              </div>
+
+              {/* Comments Section */}
+              <div className="space-y-4 pt-4 border-t border-border/30">
+                <h4 className="text-sm font-medium text-foreground flex items-center gap-2">
+                  <User className="h-4 w-4 text-cyan" />
+                  Activity & Comments
+                </h4>
+                
+                <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2">
+                  {selectedTask?.comments?.map((comment, idx) => (
+                    <div key={idx} className="flex gap-3">
+                      <div className="h-8 w-8 rounded-full bg-secondary flex items-center justify-center shrink-0 text-xs font-medium">
+                        {getInitials(comment.userName)}
+                      </div>
+                      <div className="flex-1 space-y-1">
+                        <div className="flex items-baseline justify-between">
+                          <span className="text-sm font-medium text-foreground">{comment.userName}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {new Date(comment.createdAt).toLocaleDateString()} {new Date(comment.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                          </span>
+                        </div>
+                        <p className="text-sm text-muted-foreground bg-secondary/30 p-2 rounded-lg">
+                          {comment.content}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                  {(!selectedTask?.comments || selectedTask.comments.length === 0) && (
+                     <p className="text-xs text-muted-foreground text-center py-4">No comments yet</p>
+                  )}
+                </div>
+
+                <div className="flex gap-2">
+                  <Input 
+                    placeholder="Write a comment..." 
+                    value={newComment}
+                    onChange={(e) => setNewComment(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault()
+                        handleAddComment()
+                      }
+                    }}
+                    className="bg-secondary/50 border-border/50"
+                  />
+                  <Button 
+                    size="sm" 
+                    onClick={handleAddComment} 
+                    disabled={isPostingComment || !newComment.trim()}
+                    className="bg-cyan text-primary-foreground hover:bg-cyan/90"
+                  >
+                    {isPostingComment ? <Loader2 className="h-4 w-4 animate-spin" /> : "Post"}
+                  </Button>
+                </div>
+              </div>
+
 
             <DialogFooter className="flex gap-2 sm:gap-2">
-              <Button
-                variant="outline"
-                onClick={() => selectedTask && setTaskToDelete(selectedTask)}
-                className="text-red border-red/30 hover:bg-red/10 hover:text-red"
-              >
-                <Trash2 className="h-4 w-4 mr-2" />
-                Delete
-              </Button>
+              {currentUserRole === 'admin' && (
+                <Button
+                  variant="outline"
+                  onClick={() => selectedTask && setTaskToDelete(selectedTask)}
+                  className="text-red border-red/30 hover:bg-red/10 hover:text-red"
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete
+                </Button>
+              )}
               <div className="flex-1" />
               <Button variant="outline" onClick={() => setSelectedTask(null)}>
                 Close
               </Button>
-              <Button
-                onClick={() => selectedTask && handleEditTask(selectedTask)}
-                className="bg-cyan text-primary-foreground hover:bg-cyan/90"
-              >
-                <Pencil className="h-4 w-4 mr-2" />
-                Edit Task
-              </Button>
+              {currentUserRole === 'admin' && (
+                <Button
+                  onClick={() => selectedTask && handleEditTask(selectedTask)}
+                  className="bg-cyan text-primary-foreground hover:bg-cyan/90"
+                >
+                  <Pencil className="h-4 w-4 mr-2" />
+                  Edit Task
+                </Button>
+              )}
             </DialogFooter>
           </DialogContent>
         </Dialog>

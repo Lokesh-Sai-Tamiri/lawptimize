@@ -2,19 +2,19 @@ import { Resend } from 'resend';
 
 const resend = new Resend(process.env.RESEND_API_KEY || 're_placeholder_key_for_build');
 
-interface InvitationEmailData {
-  invitedEmail: string;
+interface AddedNotificationEmailData {
+  addedEmail: string;
   organizationName: string;
   inviterName: string;
-  inviteLink: string;
+  dashboardLink: string;
 }
 
 /**
- * Send team invitation email
- * @param data Invitation data
+ * Send "Added to Team" notification email
+ * @param data Notification data
  * @returns Resend email ID
  */
-export async function sendInvitationEmail(data: InvitationEmailData): Promise<string> {
+export async function sendAddedNotificationEmail(data: AddedNotificationEmailData): Promise<string> {
   try {
     // Check if API key is configured
     if (!process.env.RESEND_API_KEY || process.env.RESEND_API_KEY === 're_placeholder_key_for_build') {
@@ -25,7 +25,7 @@ export async function sendInvitationEmail(data: InvitationEmailData): Promise<st
     const fromEmail = process.env.EMAIL_FROM_NOREPLY || `noreply@${process.env.EMAIL_DOMAIN || 'niravana.in'}`;
 
     // Prepare email content
-    const subject = `${data.inviterName} invited you to join ${data.organizationName} on Lawptimize`;
+    const subject = `${data.inviterName} added you to ${data.organizationName} on Lawptimize`;
 
     const htmlContent = `
 <!DOCTYPE html>
@@ -49,7 +49,7 @@ export async function sendInvitationEmail(data: InvitationEmailData): Promise<st
       box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     }
     .header {
-      background: linear-gradient(135deg, #0891b2 0%, #06b6d4 100%);
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
       color: white;
       padding: 40px 30px;
       text-align: center;
@@ -72,23 +72,23 @@ export async function sendInvitationEmail(data: InvitationEmailData): Promise<st
       font-size: 16px;
       line-height: 1.6;
     }
-    .invitation-box {
-      background-color: #f0f9ff;
-      border-left: 4px solid #0891b2;
+    .info-box {
+      background-color: #ecfdf5;
+      border-left: 4px solid #10b981;
       padding: 20px;
       margin: 30px 0;
       border-radius: 4px;
     }
-    .invitation-box p {
+    .info-box p {
       margin: 5px 0;
       font-size: 14px;
     }
-    .invitation-box strong {
-      color: #0891b2;
+    .info-box strong {
+      color: #059669;
     }
     .cta-button {
       display: inline-block;
-      background: linear-gradient(135deg, #0891b2 0%, #06b6d4 100%);
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
       color: white;
       text-decoration: none;
       padding: 14px 32px;
@@ -99,7 +99,7 @@ export async function sendInvitationEmail(data: InvitationEmailData): Promise<st
       text-align: center;
     }
     .cta-button:hover {
-      background: linear-gradient(135deg, #0e7490 0%, #0891b2 100%);
+      background: linear-gradient(135deg, #059669 0%, #047857 100%);
     }
     .alternative-link {
       margin-top: 30px;
@@ -113,7 +113,7 @@ export async function sendInvitationEmail(data: InvitationEmailData): Promise<st
       margin: 5px 0;
     }
     .alternative-link a {
-      color: #0891b2;
+      color: #10b981;
       word-break: break-all;
     }
     .footer {
@@ -131,42 +131,30 @@ export async function sendInvitationEmail(data: InvitationEmailData): Promise<st
 <body>
   <div class="container">
     <div class="header">
-      <h1>🎉 You're Invited!</h1>
-      <p>Join your team on Lawptimize</p>
+      <h1>👋 You've been added!</h1>
+      <p>Welcome to the team on Lawptimize</p>
     </div>
 
     <div class="content">
       <p>Hello,</p>
 
-      <p><strong>${data.inviterName}</strong> has invited you to join <strong>${data.organizationName}</strong> on Lawptimize, a comprehensive legal practice management platform.</p>
+      <p><strong>${data.inviterName}</strong> has added you to the organization <strong>${data.organizationName}</strong> on Lawptimize.</p>
 
-      <div class="invitation-box">
+      <div class="info-box">
         <p><strong>Organization:</strong> ${data.organizationName}</p>
-        <p><strong>Invited by:</strong> ${data.inviterName}</p>
-        <p><strong>Role:</strong> Team Member</p>
+        <p><strong>Added by:</strong> ${data.inviterName}</p>
+        <p><strong>Access Level:</strong> Team Member</p>
       </div>
 
-      <p>As a team member, you'll be able to:</p>
-      <ul style="margin: 20px 0; padding-left: 20px;">
-        <li>Manage cases and clients</li>
-        <li>Track tasks and deadlines</li>
-        <li>Handle invoices and expenses</li>
-        <li>Collaborate with your team</li>
-      </ul>
-
-      <p>If you don't have an account yet, you can create one and set your password when you accept this invitation.</p>
+      <p>You can now access the organization's workspace, manage cases, and collaborate with your team.</p>
 
       <div style="text-align: center;">
-        <a href="${data.inviteLink}" class="cta-button">Accept Invitation & Create Account</a>
+        <a href="${data.dashboardLink}" class="cta-button">Go to Dashboard</a>
       </div>
-
-      <p style="margin-top: 30px; font-size: 14px; color: #64748b;">
-        This invitation link will remain active. Once you accept, you'll be able to access your organization's workspace immediately.
-      </p>
 
       <div class="alternative-link">
         <p><strong>Button not working?</strong> Copy and paste this link into your browser:</p>
-        <p><a href="${data.inviteLink}">${data.inviteLink}</a></p>
+        <p><a href="${data.dashboardLink}">${data.dashboardLink}</a></p>
       </div>
     </div>
 
@@ -181,26 +169,18 @@ export async function sendInvitationEmail(data: InvitationEmailData): Promise<st
 
     // Plain text version
     const textContent = `
-You're Invited to Join ${data.organizationName} on Lawptimize!
+You've been added to ${data.organizationName} on Lawptimize!
 
-${data.inviterName} has invited you to join ${data.organizationName} on Lawptimize, a comprehensive legal practice management platform.
+${data.inviterName} has added you to the organization ${data.organizationName} on Lawptimize.
 
 Organization: ${data.organizationName}
-Invited by: ${data.inviterName}
-Role: Team Member
+Added by: ${data.inviterName}
+Access Level: Team Member
 
-As a team member, you'll be able to:
-- Manage cases and clients
-- Track tasks and deadlines
-- Handle invoices and expenses
-- Collaborate with your team
+You can now access the organization's workspace immediately.
 
-If you don't have an account yet, you can create one and set your password when you accept this invitation.
-
-Accept your invitation by clicking this link:
-${data.inviteLink}
-
-This invitation link will remain active. Once you accept, you'll be able to access your organization's workspace immediately.
+Go to your Dashboard:
+${data.dashboardLink}
 
 ---
 Lawptimize - Legal Practice Management
@@ -210,7 +190,7 @@ This is an automated email. Please do not reply directly to this message.
     // Send email using Resend
     const { data: emailData, error } = await resend.emails.send({
       from: `Lawptimize <${fromEmail}>`,
-      to: data.invitedEmail,
+      to: data.addedEmail,
       subject,
       html: htmlContent,
       text: textContent,
@@ -226,7 +206,7 @@ This is an automated email. Please do not reply directly to this message.
 
     return emailData.id;
   } catch (error) {
-    console.error('Error sending invitation email:', error);
-    throw new Error(`Failed to send invitation email: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    console.error('Error sending added notification email:', error);
+    throw new Error(`Failed to send added notification email: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }

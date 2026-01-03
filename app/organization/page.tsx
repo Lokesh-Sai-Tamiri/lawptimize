@@ -57,11 +57,15 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface Member {
   id: string;
+  userId: string;
   email: string;
   firstName: string | null;
   lastName: string | null;
   role: 'admin' | 'user';
   joinedAt: string;
+  advocateCode?: string | null;
+  highCourt?: string | null;
+  phoneNumber?: string | null;
 }
 
 interface PendingInvitation {
@@ -87,7 +91,15 @@ export default function OrganizationPage() {
   const [showViewProfile, setShowViewProfile] = useState(false);
   const [showChangeRole, setShowChangeRole] = useState(false);
   const [showRemoveMember, setShowRemoveMember] = useState(false);
+  const [showEditMember, setShowEditMember] = useState(false);
   const [newRole, setNewRole] = useState<'admin' | 'user'>('user');
+  const [editFormData, setEditFormData] = useState({
+    firstName: '',
+    lastName: '',
+    advocateCode: '',
+    highCourt: '',
+    phoneNumber: '',
+  });
   const [isProcessing, setIsProcessing] = useState(false);
 
   useEffect(() => {
@@ -240,6 +252,62 @@ export default function OrganizationPage() {
       setIsProcessing(false);
     }
   };
+
+  const handleEditMemberClick = (member: Member) => {
+    setSelectedMember(member);
+    setEditFormData({
+      firstName: member.firstName || '',
+      lastName: member.lastName || '',
+      advocateCode: member.advocateCode || '',
+      highCourt: member.highCourt || '',
+      phoneNumber: member.phoneNumber || '',
+    });
+    setNewRole(member.role);
+    setShowEditMember(true);
+  };
+
+  const handleEditMember = async () => {
+    if (!selectedMember) return;
+
+    try {
+      setIsProcessing(true);
+      setError('');
+
+      const response = await fetch('/api/organizations/members', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          memberUserId: selectedMember.userId, // Note: We need userId, but Member interface might only have id (the mongo _id). Let's check.
+          role: newRole,
+          ...editFormData,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to update member');
+      }
+
+      setSuccess(data.message || 'Member updated successfully');
+      setShowEditMember(false);
+      fetchMembers();
+    } catch (err: any) {
+      setError(err.message || 'Failed to update member');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   if (!isAdmin) {
     return (
@@ -476,7 +544,7 @@ export default function OrganizationPage() {
                     <div className="flex items-center gap-4">
                       <div className="h-10 w-10 rounded-full bg-gradient-to-br from-cyan/20 to-teal/10 flex items-center justify-center">
                         <span className="text-sm font-semibold text-cyan">
-                          {(member.firstName || member.email)[0]?.toUpperCase()}
+                          {(member.firstName || member.email || '?')[0]?.toUpperCase()}
                         </span>
                       </div>
                       <div>
@@ -513,6 +581,9 @@ export default function OrganizationPage() {
                           <DropdownMenuItem onClick={() => handleViewProfile(member)}>
                             View Profile
                           </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleEditMemberClick(member)}>
+                            Edit Details
+                          </DropdownMenuItem>
                           {member.role !== 'admin' && (
                             <>
                               <DropdownMenuItem onClick={() => handleChangeRoleClick(member)}>
@@ -548,7 +619,7 @@ export default function OrganizationPage() {
                 <div className="flex items-center gap-4">
                   <div className="h-16 w-16 rounded-full bg-gradient-to-br from-cyan/20 to-teal/10 flex items-center justify-center">
                     <span className="text-2xl font-semibold text-cyan">
-                      {(selectedMember.firstName || selectedMember.email)[0]?.toUpperCase()}
+                      {(selectedMember.firstName || selectedMember.email || '?')[0]?.toUpperCase()}
                     </span>
                   </div>
                   <div>
@@ -662,6 +733,108 @@ export default function OrganizationPage() {
                   </>
                 ) : (
                   'Update Role'
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Edit Member Dialog */}
+        <Dialog open={showEditMember} onOpenChange={setShowEditMember}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edit Team Member</DialogTitle>
+              <DialogDescription>
+                Update details for {selectedMember?.email}
+              </DialogDescription>
+            </DialogHeader>
+            {error && (
+              <Alert variant="destructive">
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+            <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto px-1">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">First Name</label>
+                  <Input 
+                    value={editFormData.firstName} 
+                    onChange={(e) => setEditFormData({...editFormData, firstName: e.target.value})}
+                    placeholder="First Name"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Last Name</label>
+                  <Input 
+                    value={editFormData.lastName} 
+                    onChange={(e) => setEditFormData({...editFormData, lastName: e.target.value})}
+                    placeholder="Last Name"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Advocate Code</label>
+                <Input 
+                  value={editFormData.advocateCode} 
+                  onChange={(e) => setEditFormData({...editFormData, advocateCode: e.target.value})}
+                  placeholder="e.g. AP/123/2023"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Jurisdiction / High Court</label>
+                <Input 
+                  value={editFormData.highCourt} 
+                  onChange={(e) => setEditFormData({...editFormData, highCourt: e.target.value})}
+                  placeholder="e.g. Telangana High Court"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Phone Number</label>
+                <Input 
+                  value={editFormData.phoneNumber} 
+                  onChange={(e) => setEditFormData({...editFormData, phoneNumber: e.target.value})}
+                  placeholder="+91..."
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Role</label>
+                <Select value={newRole} onValueChange={(value: 'admin' | 'user') => setNewRole(value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="user">
+                      <div className="flex items-center gap-2">
+                        <Users className="h-4 w-4" />
+                        <span>Member</span>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="admin">
+                      <div className="flex items-center gap-2">
+                        <Crown className="h-4 w-4" />
+                        <span>Admin</span>
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowEditMember(false)} disabled={isProcessing}>
+                Cancel
+              </Button>
+              <Button onClick={handleEditMember} disabled={isProcessing}>
+                {isProcessing ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 animate-spin mr-2" />
+                    Saving...
+                  </>
+                ) : (
+                  'Save Changes'
                 )}
               </Button>
             </DialogFooter>

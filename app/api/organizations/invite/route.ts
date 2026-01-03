@@ -3,6 +3,7 @@ import { auth, clerkClient, currentUser } from '@clerk/nextjs/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { Organization, OrganizationMember } from '@/lib/models';
 import { sendInvitationEmail } from '@/lib/email/send-invitation';
+import { sendAddedNotificationEmail } from '@/lib/email/send-added-notification';
 
 /**
  * POST /api/organizations/invite
@@ -96,6 +97,12 @@ export async function POST(request: Request) {
       // User doesn't exist in Clerk
     }
 
+    // Get current user info for email inviter name
+    const currentUserReq = await currentUser();
+    const inviterName = currentUserReq?.firstName
+      ? `${currentUserReq.firstName} ${currentUserReq.lastName || ''}`.trim()
+      : currentUserReq?.emailAddresses[0]?.emailAddress || 'A team member';
+
     // If user exists in Clerk, check if they already belong to an organization
     if (targetUser) {
       const existingOrgMembership = await OrganizationMember.findOne({ userId: targetUser.id });
@@ -107,30 +114,63 @@ export async function POST(request: Request) {
         );
       }
 
-      // User exists and doesn't have an organization - add them directly
+      // Ensure role is valid
+      const validRole = role === 'admin' ? 'admin' : 'member';
+
+      // User exists and doesn't have an organization - invite them
       const member = await OrganizationMember.create({
         organizationId: currentMembership.organizationId,
         userId: targetUser.id,
         email: userEmail.toLowerCase(),
         firstName: targetUser.firstName || undefined,
         lastName: targetUser.lastName || undefined,
-        role: role,
-        status: 'active',
+        role: validRole,
+        status: 'invited',
         invitedBy: userId,
         invitedAt: new Date(),
-        joinedAt: new Date(),
       });
+
+      // Generate invitation token
+      const inviteToken = Buffer.from(
+        JSON.stringify({
+          memberId: member._id.toString(),
+          organizationId: currentMembership.organizationId.toString(),
+          organizationName: organization.name,
+          email: userEmail,
+          role: validRole,
+          timestamp: Date.now(),
+        })
+      ).toString('base64');
+
+      const inviteLink = `${process.env.NEXT_PUBLIC_APP_URL}/accept-invitation?token=${inviteToken}`;
+
+      console.log(`Sending invitation email to ${userEmail} with link: ${inviteLink}`);
+
+      // Send invitation email
+      try {
+        await sendInvitationEmail({
+          invitedEmail: userEmail,
+          organizationName: organization.name,
+          inviterName,
+          inviteLink,
+        });
+        console.log('Invitation email sent successfully');
+      } catch (emailError: any) {
+        console.error('Failed to send invitation email:', emailError);
+      }
 
       return NextResponse.json({
         success: true,
-        message: 'User added to organization',
-        member: {
+        message: 'Invitation sent successfully! An email has been sent to the user.',
+        invitation: {
           id: member._id.toString(),
-          userId: targetUser.id,
           email: userEmail,
           role: role,
-          status: 'active',
+          status: 'invited',
+          inviteLink,
         },
+        organizationId: currentMembership.organizationId.toString(),
+        organizationName: organization.name,
       });
     }
 
@@ -139,7 +179,7 @@ export async function POST(request: Request) {
       organizationId: currentMembership.organizationId,
       userId: `pending_${Date.now()}`,
       email: userEmail.toLowerCase(),
-      role: role,
+      role: role === 'user' ? 'member' : role,
       status: 'invited',
       invitedBy: userId,
       invitedAt: new Date(),
@@ -158,12 +198,6 @@ export async function POST(request: Request) {
     ).toString('base64');
 
     const inviteLink = `${process.env.NEXT_PUBLIC_APP_URL}/accept-invitation?token=${inviteToken}`;
-
-    // Get current user info for email
-    const user = await currentUser();
-    const inviterName = user?.firstName
-      ? `${user.firstName} ${user.lastName || ''}`.trim()
-      : user?.emailAddresses[0]?.emailAddress || 'A team member';
 
     // Send invitation email
     try {

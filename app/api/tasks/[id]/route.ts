@@ -60,7 +60,9 @@ export async function GET(request: Request, { params }: RouteParams) {
         priority: task.priority,
         status: task.status,
         createdAt: formatDate(task.createdAt),
+
         updatedAt: task.updatedAt.toISOString(),
+        comments: task.comments || [],
       },
     });
   } catch (error: any) {
@@ -155,6 +157,7 @@ export async function PUT(request: Request, { params }: RouteParams) {
         status: updatedTask.status,
         createdAt: formatDate(updatedTask.createdAt),
         updatedAt: updatedTask.updatedAt.toISOString(),
+        comments: updatedTask.comments || [],
       },
     });
   } catch (error: any) {

@@ -16,6 +16,12 @@ export interface ITask extends Document {
   createdBy: string; // Clerk user ID
   createdAt: Date;
   updatedAt: Date;
+  comments?: Array<{
+    userId: string;
+    userName: string;
+    content: string;
+    createdAt: Date;
+  }>;
 }
 
 const TaskSchema = new Schema<ITask>(
@@ -77,6 +83,15 @@ const TaskSchema = new Schema<ITask>(
       type: String,
       required: [true, 'Creator user ID is required'],
     },
+    comments: [{
+      userId: String,
+      userName: String,
+      content: String,
+      createdAt: {
+        type: Date,
+        default: Date.now
+      }
+    }],
   },
   {
     timestamps: true,
