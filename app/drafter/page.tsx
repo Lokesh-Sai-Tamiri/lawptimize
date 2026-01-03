@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { Sidebar } from "@/components/sidebar"
-import { AIChatBar } from "@/components/ai-chat-bar"
+
 import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
 import { Mic, Sparkles, FileText } from "lucide-react"
@@ -109,7 +109,7 @@ This is an AI-generated draft. Please review and modify as needed.`)
           </div>
         </div>
       </main>
-      <AIChatBar />
+
     </div>
   )
 }

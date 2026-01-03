@@ -3,7 +3,7 @@
 import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Sidebar } from "@/components/sidebar"
-import { AIChatBar } from "@/components/ai-chat-bar"
+
 import { ThemeToggle } from "@/components/theme-toggle"
 import { IntelligenceFeed } from "@/components/intelligence-feed"
 import { FileText, Search, Sparkles, ArrowRight, AlertCircle } from "lucide-react"
@@ -116,7 +116,7 @@ export default function DashboardPage() {
           </div>
         </div>
       </main>
-      <AIChatBar />
+
     </div>
   )
 }

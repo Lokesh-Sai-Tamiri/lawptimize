@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { Sidebar } from "@/components/sidebar"
-import { AIChatBar } from "@/components/ai-chat-bar"
+
 import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -687,7 +687,7 @@ export default function FinancialsPage() {
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
         </main>
-        <AIChatBar />
+
       </div>
     )
   }
@@ -996,7 +996,7 @@ export default function FinancialsPage() {
           </div>
         </div>
       </main>
-      <AIChatBar />
+
 
       {/* Client Dialog */}
       <Dialog open={showClientDialog} onOpenChange={setShowClientDialog}>

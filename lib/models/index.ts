@@ -24,3 +24,6 @@ export type { IInvoiceCounter } from './InvoiceCounter';
 
 export { default as UserCauselist } from './UserCauselist';
 export type { IUserCauselist } from './UserCauselist';
+
+export { default as Notification } from './Notification';
+export type { INotification } from './Notification';

@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react"
 import { Sidebar } from "@/components/sidebar"
-import { AIChatBar } from "@/components/ai-chat-bar"
+
 import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -883,7 +883,7 @@ export default function CasesPage() {
           </DialogContent>
         </Dialog>
       </main>
-      <AIChatBar />
+
     </div>
   )
 }

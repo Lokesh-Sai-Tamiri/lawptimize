@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { currentUser } from "@clerk/nextjs/server";
 import { connectToDatabase } from "@/lib/mongodb";
-import { Task, OrganizationMember } from "@/lib/models";
+import { Task, OrganizationMember, Notification } from "@/lib/models";
 import mongoose from "mongoose";
+import { sendTaskNotificationEmail } from "@/lib/email/send-task-notification";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -139,6 +140,40 @@ export async function PUT(request: Request, { params }: RouteParams) {
 
     if (!updatedTask) {
       return NextResponse.json({ error: "Task not found" }, { status: 404 });
+    }
+
+    // Check for status change and notify admin if applicable
+    if (status && status !== 'todo') { // Assuming logic to check previous status would require double fetch or comparing here, simple check: if status is in updateData
+       // Fetch admin to notify
+       const adminMember = await OrganizationMember.findOne({
+          organizationId: membership.organizationId,
+          role: 'admin'
+       });
+
+       if (adminMember && adminMember.email && id && user.id !== adminMember.userId) {
+          const uName = user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : 'Member';
+          const aName = adminMember.firstName ? `${adminMember.firstName} ${adminMember.lastName || ''}`.trim() : 'Admin';
+          
+          await sendTaskNotificationEmail({
+             adminEmail: adminMember.email,
+             adminName: aName,
+             memberName: uName,
+             taskTitle: updatedTask.title,
+             action: 'move',
+             newStatus: status,
+             taskLink: `${process.env.NEXT_PUBLIC_APP_URL}/tasks`
+          });
+
+          // Create in-app notification
+          await Notification.create({
+            recipientId: adminMember.userId,
+            senderId: user.id,
+            type: 'task_update',
+            title: status === 'completed' ? `Task Completed: ${updatedTask.title}` : `Task Moved: ${updatedTask.title}`,
+            message: `${uName} moved this task to ${status === 'inProgress' ? 'In Progress' : status === 'completed' ? 'Completed' : 'To Do'}`,
+            link: `/tasks?taskId=${updatedTask._id}`
+          });
+       }
     }
 
     return NextResponse.json({

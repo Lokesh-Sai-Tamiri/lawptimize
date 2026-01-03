@@ -4,7 +4,7 @@ import type React from "react"
 import { useState, useEffect } from "react"
 import { useUser } from "@clerk/nextjs"
 import { Sidebar } from "@/components/sidebar"
-import { AIChatBar } from "@/components/ai-chat-bar"
+
 import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -447,7 +447,7 @@ export default function TasksPage() {
         <main className="ml-16 flex-1 p-8 pb-24 flex items-center justify-center">
           <Loader2 className="h-8 w-8 animate-spin text-cyan" />
         </main>
-        <AIChatBar />
+
       </div>
     )
   }
@@ -462,7 +462,7 @@ export default function TasksPage() {
             Retry
           </Button>
         </main>
-        <AIChatBar />
+
       </div>
     )
   }
@@ -1116,7 +1116,7 @@ export default function TasksPage() {
           </DialogContent>
         </Dialog>
       </main>
-      <AIChatBar />
+
     </div>
   )
 }
