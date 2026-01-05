@@ -38,8 +38,8 @@ ENV RESEND_API_KEY="re_KYJTGnDY_DkixEdthBse447TNMc1trFje"
 ENV EMAIL_DOMAIN="niravana.in"
 ENV EMAIL_FROM_INVOICES="invoices@niravana.in"
 ENV EMAIL_FROM_NOREPLY="noreply@niravana.in"
-ENV NEXT_PUBLIC_APP_URL="http://localhost:3000"
-
+# ENV NEXT_PUBLIC_APP_URL="http://localhost:3000"
+ENV NEXT_PUBLIC_APP_URL="http://lawptimize.lipiq.in"
 # Networking
 ENV PORT 3000
 ENV HOSTNAME "0.0.0.0"
