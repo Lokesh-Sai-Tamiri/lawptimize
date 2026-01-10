@@ -1,6 +1,6 @@
 
 import { NextResponse } from 'next/server';
-import puppeteer from 'puppeteer';
+import { getBrowser } from '@/lib/puppeteer';
 import { auth } from "@clerk/nextjs/server";
 import { connectToDatabase } from "@/lib/mongodb";
 import { UserCauselist } from '@/lib/models';
@@ -34,17 +34,7 @@ export async function POST(request: Request) {
 
     // Launch puppeteer
     console.log("Launching Puppeteer...");
-    const browser = await puppeteer.launch({
-      headless: false, // Set to false for debugging
-      ignoreHTTPSErrors: true,
-      args: [
-        '--no-sandbox', 
-        '--disable-setuid-sandbox',
-        '--ignore-certificate-errors',
-        '--ignore-certificate-errors-spki-list',
-        '--window-size=1280,800' // Optional: explicit window size for better viewing
-      ],
-    } as any);
+    const browser = await getBrowser();
     console.log("Puppeteer launched.");
 
     const page = await browser.newPage();
